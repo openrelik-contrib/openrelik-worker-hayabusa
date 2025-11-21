@@ -30,6 +30,24 @@ TASK_NAME = "openrelik-worker-hayabusa.tasks.json_timeline"
 TASK_METADATA = {
     "display_name": "Hayabusa JSON timeline",
     "description": "Windows event log triage",
+    "task_config": [
+        {
+            "name": "time_format",
+            "label": "Default is YYYY-MM-DD HH:mm:ss.sss +hh:mm",
+            "description": "Time format",
+            "type": "select",
+            "items": [ "default", "ISO-8601", "RFC-2822", "RFC-3339" ],
+            "required": False,
+        },
+        {
+            "name": "output_profile",
+            "label": "Choose an output profile",
+            "description": "Output profile",
+            "type": "select",
+            "items": [ "minimal", "standard", "verbose", "all-field-info", "all-field-info-verbose", "super-verbose", "timesketch-minimal", "timesketch-verbose" ],
+            "required": False,
+        },
+    ],
 }
 
 COMPATIBLE_INPUTS = {
@@ -70,21 +88,41 @@ def csv_timeline(
         filename = os.path.basename(file.get("path"))
         os.link(file.get("path"), f"{temp_dir}/{filename}")
 
-    command = [
-        "/hayabusa/hayabusa",
-        "json-timeline",
-        "--ISO-8601",
-        "--UTC",
-        "--no-wizard",
-        "--quiet",
-        "--profile",
-        "timesketch-verbose",
-        "--clobber",
-        "--output",
-        output_file.path,
-        "--directory",
-        temp_dir,
-    ]
+    time_format = task_config.get("time_format", "default")
+    output_profile = task_config.get("output_profile", "standard")
+
+    if time_format == "default":
+        command = [
+            "/hayabusa/hayabusa",
+            "json-timeline",
+            "--UTC",
+            "--no-wizard",
+            "--quiet",
+            "--profile",
+            output_profile,
+            "--clobber",
+            "--output",
+            output_file.path,
+            "--directory",
+            temp_dir,
+        ]
+    else:
+        time_format_param = "--" + time_format
+        command = [
+            "/hayabusa/hayabusa",
+            "json-timeline",
+            time_format_param,
+            "--UTC",
+            "--no-wizard",
+            "--quiet",
+            "--profile",
+            output_profile,
+            "--clobber",
+            "--output",
+            output_file.path,
+            "--directory",
+            temp_dir,
+        ]
 
     INTERVAL_SECONDS = 2
     process = subprocess.Popen(command)
