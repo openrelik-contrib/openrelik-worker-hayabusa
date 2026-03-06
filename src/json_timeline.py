@@ -44,7 +44,7 @@ COMPATIBLE_INPUTS = {
 
 
 @celery.task(bind=True, name=TASK_NAME, metadata=TASK_METADATA)
-def csv_timeline(
+def json_timeline(
     self,
     pipe_result=None,
     input_files=[],
