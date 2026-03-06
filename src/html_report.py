@@ -66,7 +66,7 @@ def html_report(
     output_file = create_output_file(
         output_path,
         display_name="Hayabusa_HTML_report.html",
-        data_type="openrelik:hayabusa:html_report",
+        data_type="openrelik:hayabusa:html",
     )
 
     # Create temporary directory and hard link files for processing

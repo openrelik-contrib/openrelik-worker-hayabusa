@@ -64,7 +64,7 @@ def json_timeline(
     output_file = create_output_file(
         output_path,
         display_name="Hayabusa_JSON_timeline.json",
-        data_type="openrelik:hayabusa:json_timeline",
+        data_type="openrelik:hayabusa:json",
     )
 
     # Create temporary directory and hard link files for processing
