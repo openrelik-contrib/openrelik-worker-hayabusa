@@ -77,38 +77,25 @@ def json_timeline(
     time_format = task_config.get("time_format", "default")
     output_profile = task_config.get("output_profile", "standard")
 
-    if time_format == "default":
-        command = [
-            "/hayabusa/hayabusa",
-            "json-timeline",
-            "--UTC",
-            "--no-wizard",
-            "--quiet",
-            "--profile",
-            output_profile,
-            "--clobber",
-            "--output",
-            output_file.path,
-            "--directory",
-            temp_dir,
-        ]
-    else:
-        time_format_param = "--" + time_format
-        command = [
-            "/hayabusa/hayabusa",
-            "json-timeline",
-            time_format_param,
-            "--UTC",
-            "--no-wizard",
-            "--quiet",
-            "--profile",
-            output_profile,
-            "--clobber",
-            "--output",
-            output_file.path,
-            "--directory",
-            temp_dir,
-        ]
+    # Basic command for generating a JSON timeline
+    command = [
+        "/hayabusa/hayabusa",
+        "json-timeline",
+        "--UTC",
+        "--no-wizard",
+        "--quiet",
+        "--profile",
+        output_profile,
+        "--clobber",
+        "--output",
+        output_file.path,
+        "--directory",
+        temp_dir,
+    ]
+
+    # If non-default time format is required, append the appropriate param to Hayabusa command
+    if time_format != "default":
+        command.append("--" + time_format)
 
     INTERVAL_SECONDS = 2
     process = subprocess.Popen(command)
