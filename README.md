@@ -8,7 +8,7 @@ Add to your docker-compose configuration:
 ```
   openrelik-worker-hayabusa:
     container_name: openrelik-worker-hayabusa
-    image: ghcr.io/openrelik/openrelik-worker-hayabusa:${OPENRELIK_WORKER_HAYABUSA_VERSION}
+    image: ghcr.io/openrelik-contrib/openrelik-worker-hayabusa:${OPENRELIK_WORKER_HAYABUSA_VERSION}
     restart: always
     environment:
       - REDIS_URL=redis://openrelik-redis:6379
