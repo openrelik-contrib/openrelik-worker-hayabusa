@@ -8,32 +8,17 @@ from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
 from .app import celery
+from .hayabusa import build_timeline_command, output_display_name, timeline_task_config
 
 # Task name used to register and route the task to the correct queue.
 TASK_NAME = "openrelik-worker-hayabusa.tasks.json_timeline"
+DEFAULT_DISPLAY_NAME = "Hayabusa_JSON_timeline.json"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
     "display_name": "Hayabusa JSON timeline",
     "description": "Windows event log triage",
-    "task_config": [
-        {
-            "name": "time_format",
-            "label": "Default is YYYY-MM-DD HH:mm:ss.sss +hh:mm",
-            "description": "Time format",
-            "type": "select",
-            "items": [ "default", "ISO-8601", "RFC-2822", "RFC-3339" ],
-            "required": False,
-        },
-        {
-            "name": "output_profile",
-            "label": "Choose an output profile",
-            "description": "Output profile",
-            "type": "select",
-            "items": [ "minimal", "standard", "verbose", "all-field-info", "all-field-info-verbose", "super-verbose", "timesketch-minimal", "timesketch-verbose" ],
-            "required": False,
-        },
-    ],
+    "task_config": timeline_task_config(),
 }
 
 COMPATIBLE_INPUTS = {
@@ -47,10 +32,10 @@ COMPATIBLE_INPUTS = {
 def json_timeline(
     self,
     pipe_result=None,
-    input_files=[],
+    input_files=None,
     output_path=None,
     workflow_id=None,
-    task_config={},
+    task_config=None,
 ) -> str:
     output_files = []
     input_files = get_input_files(pipe_result, input_files or [], filter=COMPATIBLE_INPUTS)
@@ -63,7 +48,7 @@ def json_timeline(
 
     output_file = create_output_file(
         output_path,
-        display_name="Hayabusa_JSON_timeline.json",
+        display_name=output_display_name(task_config, DEFAULT_DISPLAY_NAME, ".json"),
         data_type="openrelik:hayabusa:json",
     )
 
@@ -74,28 +59,12 @@ def json_timeline(
         filename = os.path.basename(file.get("path"))
         os.link(file.get("path"), f"{temp_dir}/{filename}")
 
-    time_format = task_config.get("time_format", "default")
-    output_profile = task_config.get("output_profile", "standard")
-
-    # Basic command for generating a JSON timeline
-    command = [
-        "/hayabusa/hayabusa",
+    command = build_timeline_command(
         "json-timeline",
-        "--UTC",
-        "--no-wizard",
-        "--quiet",
-        "--profile",
-        output_profile,
-        "--clobber",
-        "--output",
         output_file.path,
-        "--directory",
         temp_dir,
-    ]
-
-    # If non-default time format is required, append the appropriate param to Hayabusa command
-    if time_format != "default":
-        command.append("--" + time_format)
+        task_config,
+    )
 
     INTERVAL_SECONDS = 2
     process = subprocess.Popen(command)
