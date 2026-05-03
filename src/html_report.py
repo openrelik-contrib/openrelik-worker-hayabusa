@@ -21,17 +21,19 @@ from uuid import uuid4
 from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
-
 from .app import celery
+from .hayabusa import build_timeline_command, output_display_name, timeline_task_config
 
 
 # Task name used to register and route the task to the correct queue.
 TASK_NAME = "openrelik-worker-hayabusa.tasks.html_report"
+DEFAULT_DISPLAY_NAME = "Hayabusa_HTML_report.html"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
     "display_name": "Hayabusa HTML report",
     "description": "Windows event log triage",
+    "task_config": timeline_task_config(),
 }
 
 COMPATIBLE_INPUTS = {
@@ -45,10 +47,10 @@ COMPATIBLE_INPUTS = {
 def html_report(
     self,
     pipe_result=None,
-    input_files=[],
+    input_files=None,
     output_path=None,
     workflow_id=None,
-    task_config={},
+    task_config=None,
 ) -> str:
     output_files = []
     input_files = get_input_files(
@@ -61,11 +63,9 @@ def html_report(
             command="",
         )
 
-    
-
     output_file = create_output_file(
         output_path,
-        display_name="Hayabusa_HTML_report.html",
+        display_name=output_display_name(task_config, DEFAULT_DISPLAY_NAME, ".html"),
         data_type="openrelik:hayabusa:html",
     )
 
@@ -76,21 +76,13 @@ def html_report(
         filename = os.path.basename(file.get("path"))
         os.link(file.get("path"), f"{temp_dir}/{filename}")
 
-    command = [
-        "/hayabusa/hayabusa",
+    command = build_timeline_command(
         "csv-timeline",
-        "--ISO-8601",
-        "--UTC",
-        "--no-wizard",
-        "--quiet",
-        "--clobber",
-        "--HTML-report",
-        output_file.path,
-        "--output",
         "/dev/null",
-        "--directory",
         temp_dir,
-    ]
+        task_config,
+        html_report_path=output_file.path,
+    )
 
     INTERVAL_SECONDS = 2
     process = subprocess.Popen(command)
