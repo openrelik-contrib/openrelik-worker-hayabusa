@@ -22,14 +22,17 @@ from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
 from .app import celery
+from .hayabusa import build_timeline_command, output_display_name, timeline_task_config
 
 # Task name used to register and route the task to the correct queue.
 TASK_NAME = "openrelik-worker-hayabusa.tasks.csv_timeline"
+DEFAULT_DISPLAY_NAME = "Hayabusa_CSV_timeline.csv"
 
 # Task metadata for registration in the core system.
 TASK_METADATA = {
     "display_name": "Hayabusa CSV timeline",
     "description": "Windows event log triage",
+    "task_config": timeline_task_config(),
 }
 
 COMPATIBLE_INPUTS = {
@@ -43,10 +46,10 @@ COMPATIBLE_INPUTS = {
 def csv_timeline(
     self,
     pipe_result=None,
-    input_files=[],
+    input_files=None,
     output_path=None,
     workflow_id=None,
-    task_config={},
+    task_config=None,
 ) -> str:
     output_files = []
     input_files = get_input_files(pipe_result, input_files or [], filter=COMPATIBLE_INPUTS)
@@ -59,7 +62,7 @@ def csv_timeline(
 
     output_file = create_output_file(
         output_path,
-        display_name="Hayabusa_CSV_timeline.csv",
+        display_name=output_display_name(task_config, DEFAULT_DISPLAY_NAME, ".csv"),
         data_type="openrelik:hayabusa:csv",
     )
 
@@ -70,21 +73,12 @@ def csv_timeline(
         filename = os.path.basename(file.get("path"))
         os.link(file.get("path"), f"{temp_dir}/{filename}")
 
-    command = [
-        "/hayabusa/hayabusa",
+    command = build_timeline_command(
         "csv-timeline",
-        "--ISO-8601",
-        "--UTC",
-        "--no-wizard",
-        "--quiet",
-        "--profile",
-        "timesketch-verbose",
-        "--clobber",
-        "--output",
         output_file.path,
-        "--directory",
         temp_dir,
-    ]
+        task_config,
+    )
 
     INTERVAL_SECONDS = 2
     process = subprocess.Popen(command)
