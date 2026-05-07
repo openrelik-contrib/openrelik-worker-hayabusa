@@ -1,6 +1,6 @@
 HAYABUSA_BINARY = "/hayabusa/hayabusa"
 
-DEFAULT_OUTPUT_PROFILE = "standard"
+DEFAULT_OUTPUT_PROFILE = "timesketch-verbose"
 DEFAULT_TIME_FORMAT = "UTC"
 
 OUTPUT_PROFILES = [
