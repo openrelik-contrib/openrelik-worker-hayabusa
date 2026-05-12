@@ -15,7 +15,7 @@ from src.html_report import TASK_METADATA as HTML_TASK_METADATA
 from src.json_timeline import TASK_METADATA as JSON_TASK_METADATA
 
 
-def test_default_timeline_command_uses_utc_and_standard_profile():
+def test_default_timeline_command_uses_utc_and_timesketch_verbose_profile():
     command = build_timeline_command(
         "csv-timeline",
         "/tmp/out.csv",
