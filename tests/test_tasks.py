@@ -6,6 +6,7 @@ from src.hayabusa import (
     DEFAULT_OUTPUT_PROFILE,
     DEFAULT_TIME_FORMAT,
     build_timeline_command,
+    enable_noisy_rules,
     output_display_name,
     output_profile,
     time_format,
@@ -38,6 +39,7 @@ def test_default_timeline_command_uses_utc_and_timesketch_verbose_profile():
         "/tmp/input",
     ]
     assert DEFAULT_TIME_FORMAT == "UTC"
+    assert "--enable-noisy-rules" not in command
 
 
 def test_timeline_command_applies_time_format_and_profile_overrides():
@@ -54,6 +56,17 @@ def test_timeline_command_applies_time_format_and_profile_overrides():
     assert "--UTC" in command
     assert command[command.index("--profile") + 1] == "timesketch-verbose"
     assert "--RFC-3339" in command
+
+
+def test_timeline_command_applies_noisy_rules_override():
+    command = build_timeline_command(
+        "csv-timeline",
+        "/tmp/out.csv",
+        "/tmp/input",
+        task_config={"enable_noisy_rules": True},
+    )
+
+    assert "--enable-noisy-rules" in command
 
 
 def test_html_command_applies_profile_and_html_report_output():
@@ -82,6 +95,16 @@ def test_invalid_options_fall_back_to_shared_defaults():
 
 def test_legacy_default_time_format_maps_to_utc_default():
     assert time_format({"time_format": "default"}) == DEFAULT_TIME_FORMAT
+
+
+def test_noisy_rules_config_coerces_boolean_values():
+    assert enable_noisy_rules({}) is False
+    assert enable_noisy_rules({"enable_noisy_rules": True}) is True
+    assert enable_noisy_rules({"enable_noisy_rules": False}) is False
+    assert enable_noisy_rules({"enable_noisy_rules": "true"}) is True
+    assert enable_noisy_rules({"enable_noisy_rules": "false"}) is False
+    assert enable_noisy_rules({"enable_noisy_rules": " true "}) is True
+    assert enable_noisy_rules({"enable_noisy_rules": ["true"]}) is True
 
 
 def test_output_display_name_defaults_when_not_configured():
@@ -127,3 +150,7 @@ def test_output_display_name_uses_basename_for_path_like_values():
 def test_all_tasks_expose_the_same_hayabusa_options():
     assert CSV_TASK_METADATA["task_config"] == JSON_TASK_METADATA["task_config"]
     assert HTML_TASK_METADATA["task_config"] == JSON_TASK_METADATA["task_config"]
+    assert any(
+        item["name"] == "enable_noisy_rules"
+        for item in JSON_TASK_METADATA["task_config"]
+    )

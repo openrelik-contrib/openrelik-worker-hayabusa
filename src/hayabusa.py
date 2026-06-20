@@ -60,6 +60,14 @@ def timeline_task_config() -> list[dict[str, object]]:
             "type": "text",
             "required": False,
         },
+        {
+            "name": "enable_noisy_rules",
+            "label": "Enable noisy rules",
+            "description": "Include rules listed in Hayabusa's noisy rules config.",
+            "type": "checkbox",
+            "default": False,
+            "required": False,
+        },
     ]
 
 
@@ -88,6 +96,15 @@ def time_format(task_config: dict | None) -> str:
     if selected_format == "default":
         return DEFAULT_TIME_FORMAT
     return selected_format
+
+
+def enable_noisy_rules(task_config: dict | None) -> bool:
+    return _config_value(task_config, "enable_noisy_rules", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def output_display_name(
@@ -133,6 +150,9 @@ def build_timeline_command(
     time_format_flag = TIME_FORMAT_FLAGS[selected_time_format]
     if time_format_flag:
         command.append(time_format_flag)
+
+    if enable_noisy_rules(task_config):
+        command.append("--enable-noisy-rules")
 
     command.append("--clobber")
 
