@@ -1,3 +1,7 @@
+import os
+import subprocess
+import time
+
 HAYABUSA_BINARY = "/hayabusa/hayabusa"
 
 DEFAULT_OUTPUT_PROFILE = "timesketch-verbose"
@@ -17,9 +21,9 @@ OUTPUT_PROFILES = [
 TIME_FORMAT_FLAGS = {
     "UTC": None,
     "default": None,
-    "ISO-8601": "--ISO-8601",
-    "RFC-2822": "--RFC-2822",
-    "RFC-3339": "--RFC-3339",
+    "ISO-8601": "--iso-8601",
+    "RFC-2822": "--rfc-2822",
+    "RFC-3339": "--rfc-3339",
 }
 
 TIME_FORMATS = [
@@ -130,16 +134,20 @@ def output_display_name(
 
 
 def build_timeline_command(
-    subcommand: str,
+    output_type: str,
     output_path: str,
     input_directory: str,
     task_config: dict | None,
     html_report_path: str | None = None,
 ) -> list[str]:
+    # Hayabusa 4.0.0 merged csv-timeline and json-timeline into dfir-timeline -t and
+    # lowercased every long option.
     command = [
         HAYABUSA_BINARY,
-        subcommand,
-        "--UTC",
+        "dfir-timeline",
+        "-t",
+        output_type,
+        "--utc",
         "--no-wizard",
         "--quiet",
         "--profile",
@@ -157,7 +165,7 @@ def build_timeline_command(
     command.append("--clobber")
 
     if html_report_path:
-        command.extend(["--HTML-report", html_report_path])
+        command.extend(["--html-report", html_report_path])
 
     command.extend(
         [
@@ -168,3 +176,24 @@ def build_timeline_command(
         ]
     )
     return command
+
+
+def link_inputs(input_files: list[dict], directory: str) -> None:
+    """Hard-links each input into its own numbered folder below directory, so two inputs
+    with the same file name (Security.evtx from two folders) don't collide. Hayabusa's
+    --directory reads the folders recursively and reports each log by its own name."""
+    for index, file in enumerate(input_files):
+        folder = os.path.join(directory, str(index))
+        os.mkdir(folder)
+        os.link(file.get("path"), os.path.join(folder, os.path.basename(file.get("path"))))
+
+
+def run_hayabusa(task, command: list[str], interval: float = 2) -> None:
+    """Runs Hayabusa, sending progress events, and fails the task when it fails: an
+    output file from a run that exited non-zero is not a result."""
+    process = subprocess.Popen(command)
+    while process.poll() is None:
+        task.send_event("task-progress", data=None)
+        time.sleep(interval)
+    if process.returncode != 0:
+        raise RuntimeError(f"Hayabusa exited with {process.returncode}: {' '.join(command)}")
