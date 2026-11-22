@@ -1,14 +1,18 @@
 import os
 import shutil
-import subprocess
-import time
 from uuid import uuid4
 
 from openrelik_worker_common.file_utils import create_output_file
 from openrelik_worker_common.task_utils import create_task_result, get_input_files
 
 from .app import celery
-from .hayabusa import build_timeline_command, output_display_name, timeline_task_config
+from .hayabusa import (
+    build_timeline_command,
+    link_inputs,
+    output_display_name,
+    run_hayabusa,
+    timeline_task_config,
+)
 
 # Task name used to register and route the task to the correct queue.
 TASK_NAME = "openrelik-worker-hayabusa.tasks.json_timeline"
@@ -55,22 +59,16 @@ def json_timeline(
     # Create temporary directory and hard link files for processing
     temp_dir = os.path.join(output_path, uuid4().hex)
     os.mkdir(temp_dir)
-    for file in input_files:
-        filename = os.path.basename(file.get("path"))
-        os.link(file.get("path"), f"{temp_dir}/{filename}")
+    link_inputs(input_files, temp_dir)
 
     command = build_timeline_command(
-        "json-timeline",
+        "json",
         output_file.path,
         temp_dir,
         task_config,
     )
 
-    INTERVAL_SECONDS = 2
-    process = subprocess.Popen(command)
-    while process.poll() is None:
-        self.send_event("task-progress", data=None)
-        time.sleep(INTERVAL_SECONDS)
+    run_hayabusa(self, command)
 
     # Remove temp directory
     if os.path.exists(temp_dir):

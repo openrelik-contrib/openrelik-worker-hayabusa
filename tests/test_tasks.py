@@ -3,6 +3,8 @@ import os
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
 from src.hayabusa import (
+    link_inputs,
+    run_hayabusa,
     DEFAULT_OUTPUT_PROFILE,
     DEFAULT_TIME_FORMAT,
     build_timeline_command,
@@ -18,7 +20,7 @@ from src.json_timeline import TASK_METADATA as JSON_TASK_METADATA
 
 def test_default_timeline_command_uses_utc_and_timesketch_verbose_profile():
     command = build_timeline_command(
-        "csv-timeline",
+        "csv",
         "/tmp/out.csv",
         "/tmp/input",
         task_config={},
@@ -26,8 +28,10 @@ def test_default_timeline_command_uses_utc_and_timesketch_verbose_profile():
 
     assert command == [
         "/hayabusa/hayabusa",
-        "csv-timeline",
-        "--UTC",
+        "dfir-timeline",
+        "-t",
+        "csv",
+        "--utc",
         "--no-wizard",
         "--quiet",
         "--profile",
@@ -44,7 +48,7 @@ def test_default_timeline_command_uses_utc_and_timesketch_verbose_profile():
 
 def test_timeline_command_applies_time_format_and_profile_overrides():
     command = build_timeline_command(
-        "json-timeline",
+        "json",
         "/tmp/out.json",
         "/tmp/input",
         task_config={
@@ -53,14 +57,14 @@ def test_timeline_command_applies_time_format_and_profile_overrides():
         },
     )
 
-    assert "--UTC" in command
+    assert "--utc" in command
     assert command[command.index("--profile") + 1] == "timesketch-verbose"
-    assert "--RFC-3339" in command
+    assert "--rfc-3339" in command
 
 
 def test_timeline_command_applies_noisy_rules_override():
     command = build_timeline_command(
-        "csv-timeline",
+        "csv",
         "/tmp/out.csv",
         "/tmp/input",
         task_config={"enable_noisy_rules": True},
@@ -71,7 +75,7 @@ def test_timeline_command_applies_noisy_rules_override():
 
 def test_html_command_applies_profile_and_html_report_output():
     command = build_timeline_command(
-        "csv-timeline",
+        "csv",
         "/dev/null",
         "/tmp/input",
         task_config={"output_profile": "verbose"},
@@ -79,7 +83,7 @@ def test_html_command_applies_profile_and_html_report_output():
     )
 
     assert command[command.index("--profile") + 1] == "verbose"
-    assert command[command.index("--HTML-report") + 1] == "/tmp/report.html"
+    assert command[command.index("--html-report") + 1] == "/tmp/report.html"
     assert command[command.index("--output") + 1] == "/dev/null"
 
 
@@ -154,3 +158,39 @@ def test_all_tasks_expose_the_same_hayabusa_options():
         item["name"] == "enable_noisy_rules"
         for item in JSON_TASK_METADATA["task_config"]
     )
+
+
+def test_timeline_command_uses_dfir_timeline_with_the_output_type():
+    for output_type in ("csv", "json"):
+        command = build_timeline_command(output_type, "/tmp/out", "/tmp/input", task_config={})
+        assert command[1:4] == ["dfir-timeline", "-t", output_type]
+
+
+def test_inputs_with_the_same_name_get_their_own_folders(tmp_path):
+    a = tmp_path / "a" / "Security.evtx"
+    b = tmp_path / "b" / "Security.evtx"
+    for f in (a, b):
+        f.parent.mkdir()
+        f.write_bytes(f.parent.name.encode())
+    work = tmp_path / "work"
+    work.mkdir()
+    link_inputs([{"path": str(a)}, {"path": str(b)}], str(work))
+    assert (work / "0" / "Security.evtx").read_bytes() == b"a"
+    assert (work / "1" / "Security.evtx").read_bytes() == b"b"
+
+
+class _Task:
+    def __init__(self):
+        self.events = 0
+
+    def send_event(self, *args, **kwargs):
+        self.events += 1
+
+
+def test_a_failed_hayabusa_run_fails_the_task():
+    import sys
+    import pytest
+
+    with pytest.raises(RuntimeError, match="exited with 2"):
+        run_hayabusa(_Task(), [sys.executable, "-c", "import sys; sys.exit(2)"], interval=0.01)
+    run_hayabusa(_Task(), [sys.executable, "-c", "pass"], interval=0.01)
